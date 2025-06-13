@@ -235,6 +235,8 @@ with st.sidebar:
     st.subheader("📊 Meeting Parameters")
     meeting_duration_minutes = st.slider("Avg Meeting Duration (min)", 15, 120, 45, 5)
     words_per_minute = st.slider("Speaking Rate (words/min)", 100, 200, 150, 5)
+    llm_calls_per_meeting = st.number_input("LLM Calls per Meeting", 1, 20, 4, 1,
+                                          help="Number of LLM API calls needed to process one meeting (e.g., summary, action items, sentiment analysis, etc.)")
     
     # Meeting frequency selection
     meeting_frequency_type = st.radio(
@@ -288,7 +290,8 @@ input_tokens_per_meeting = calculate_tokens(meeting_duration_minutes, words_per_
 output_tokens_per_meeting = input_tokens_per_meeting * (output_ratio / 100)
 
 # Cost calculations
-cost_per_meeting = calculate_cost(input_tokens_per_meeting, output_tokens_per_meeting, selected_model_pricing)
+cost_per_llm_call = calculate_cost(input_tokens_per_meeting, output_tokens_per_meeting, selected_model_pricing)
+cost_per_meeting = cost_per_llm_call * llm_calls_per_meeting
 monthly_cost_per_user = cost_per_meeting * meetings_per_month
 
 # Pricing calculations
@@ -521,10 +524,11 @@ with st.expander("🔍 Detailed Calculations & Assumptions"):
         
         token_data = {
             'Token Type': ['Input Tokens', 'Output Tokens', 'Total Tokens'],
-            'Per Meeting': [f"{input_tokens_per_meeting:,.0f}", f"{output_tokens_per_meeting:,.0f}", f"{input_tokens_per_meeting + output_tokens_per_meeting:,.0f}"],
-            'Per Month': [f"{monthly_input_tokens:,.0f}", f"{monthly_output_tokens:,.0f}", f"{monthly_input_tokens + monthly_output_tokens:,.0f}"],
-            'Cost': [f"${(monthly_input_tokens / 1_000_000) * selected_model_pricing['input_cost_per_million']:.2f}",
-                    f"${(monthly_output_tokens / 1_000_000) * selected_model_pricing['output_cost_per_million']:.2f}",
+            'Per LLM Call': [f"{input_tokens_per_meeting:,.0f}", f"{output_tokens_per_meeting:,.0f}", f"{input_tokens_per_meeting + output_tokens_per_meeting:,.0f}"],
+            'Per Meeting ({} calls)'.format(llm_calls_per_meeting): [f"{input_tokens_per_meeting * llm_calls_per_meeting:,.0f}", f"{output_tokens_per_meeting * llm_calls_per_meeting:,.0f}", f"{(input_tokens_per_meeting + output_tokens_per_meeting) * llm_calls_per_meeting:,.0f}"],
+            'Per Month': [f"{monthly_input_tokens * llm_calls_per_meeting:,.0f}", f"{monthly_output_tokens * llm_calls_per_meeting:,.0f}", f"{(monthly_input_tokens + monthly_output_tokens) * llm_calls_per_meeting:,.0f}"],
+            'Cost': [f"${(monthly_input_tokens * llm_calls_per_meeting / 1_000_000) * selected_model_pricing['input_cost_per_million']:.2f}",
+                    f"${(monthly_output_tokens * llm_calls_per_meeting / 1_000_000) * selected_model_pricing['output_cost_per_million']:.2f}",
                     f"${monthly_cost_per_user:.2f}"]
         }
         st.dataframe(pd.DataFrame(token_data))
@@ -585,9 +589,11 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 ## Model Configuration
 - **LLM Model:** {selected_model_name}
 - **Average Meeting Duration:** {meeting_duration_minutes} minutes
+- **LLM Calls per Meeting:** {llm_calls_per_meeting}
 - **Meetings per User per Month:** {meetings_per_month}
 
 ## Financial Metrics
+- **Cost per LLM Call:** ${cost_per_llm_call:.4f}
 - **Cost per Meeting:** ${cost_per_meeting:.4f}
 - **Monthly Cost per User:** ${monthly_cost_per_user:.2f}
 - **Monthly Profit per User:** ${profit_per_user_per_month:.2f}
