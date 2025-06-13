@@ -13,7 +13,7 @@ def create_cost_vs_profit_chart(cost, profit):
     percentages = [f'{(v/total)*100:.1f}%' if total > 0 else '0%' for v in values]
     dollar_values = [f'${v:.2f}' for v in values]
 
-    fig, ax = plt.subplots(figsize=(8, 3))
+    fig, ax = plt.subplots(figsize=(6, 2.5))
     bars = ax.barh(labels, values, color=['#E74C3C', '#27AE60'], edgecolor='white', linewidth=2)
 
     # Enhanced styling
@@ -55,7 +55,7 @@ def create_revenue_projection_chart(monthly_price, months=12):
     user_counts = [10, 25, 50, 100, 250, 500]
     months_range = np.arange(1, months + 1)
     
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(8, 4))
     
     colors = plt.cm.viridis(np.linspace(0, 0.9, len(user_counts)))
     
@@ -90,7 +90,7 @@ def create_breakeven_chart(fixed_costs, variable_cost, price_per_user):
     total_costs = fixed_costs + (users * variable_cost)
     profit = revenue - total_costs
     
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(8, 4))
     
     ax.plot(users, revenue, label='Revenue', color='#27AE60', linewidth=3)
     ax.plot(users, total_costs, label='Total Costs', color='#E74C3C', linewidth=3)
