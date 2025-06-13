@@ -145,6 +145,106 @@ def calculate_market_size(tam, sam_percentage, som_percentage):
     som = sam * (som_percentage / 100)
     return sam, som
 
+def calculate_time_saved(meeting_duration_minutes, meetings_per_month, manual_tasks_enabled):
+    """Calculate time saved per user per month using AI meeting analysis vs manual tasks."""
+    
+    # Base heuristics for manual meeting-related tasks (in minutes)
+    manual_task_times = {
+        'note_taking': meeting_duration_minutes * 0.8,  # 80% of meeting time spent taking notes
+        'summary_writing': meeting_duration_minutes * 0.5,  # 30 min meeting = 15 min summary
+        'action_item_extraction': meeting_duration_minutes * 0.2,  # 20% of meeting time
+        'follow_up_emails': 10,  # 10 minutes per meeting for follow-ups
+        'meeting_prep_review': 5,  # 5 minutes reviewing previous meeting notes
+        'calendar_updates': 3,  # 3 minutes updating calendar with action items
+        'status_reporting': meeting_duration_minutes * 0.15,  # 15% for status updates to stakeholders
+        'document_filing': 2  # 2 minutes organizing and filing meeting materials
+    }
+    
+    # Calculate total manual time per meeting
+    total_manual_time_per_meeting = 0
+    for task, enabled in manual_tasks_enabled.items():
+        if enabled:
+            total_manual_time_per_meeting += manual_task_times.get(task, 0)
+    
+    # Monthly calculations
+    monthly_time_saved_minutes = total_manual_time_per_meeting * meetings_per_month
+    monthly_time_saved_hours = monthly_time_saved_minutes / 60
+    
+    # Annual calculations
+    annual_time_saved_hours = monthly_time_saved_hours * 12
+    annual_time_saved_days = annual_time_saved_hours / 8  # 8-hour work day
+    
+    return {
+        'per_meeting_minutes': total_manual_time_per_meeting,
+        'per_meeting_hours': total_manual_time_per_meeting / 60,
+        'monthly_minutes': monthly_time_saved_minutes,
+        'monthly_hours': monthly_time_saved_hours,
+        'annual_hours': annual_time_saved_hours,
+        'annual_days': annual_time_saved_days,
+        'task_breakdown': {task: manual_task_times[task] for task, enabled in manual_tasks_enabled.items() if enabled}
+    }
+
+def calculate_productivity_value(time_saved_hours, hourly_rate, productivity_multiplier=1.2):
+    """Calculate the monetary value of time saved."""
+    # Base value of time saved
+    base_value = time_saved_hours * hourly_rate
+    
+    # Apply productivity multiplier (saved time often leads to higher productivity)
+    productivity_value = base_value * productivity_multiplier
+    
+    return {
+        'base_value': base_value,
+        'productivity_value': productivity_value,
+        'additional_value': productivity_value - base_value
+    }
+
+def create_time_savings_chart(time_data, user_counts=[1, 5, 10, 25, 50]):
+    """Creates a chart showing time savings across different user counts."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+    
+    # Chart 1: Monthly time savings
+    monthly_hours = [time_data['monthly_hours'] * users for users in user_counts]
+    monthly_days = [hours / 8 for hours in monthly_hours]  # Convert to work days
+    
+    bars1 = ax1.bar(range(len(user_counts)), monthly_days,
+                    color='#3498DB', alpha=0.8, edgecolor='white', linewidth=2)
+    ax1.set_xlabel('Number of Users', fontweight='bold')
+    ax1.set_ylabel('Time Saved (Work Days/Month)', fontweight='bold')
+    ax1.set_title('Monthly Time Savings by User Count', fontweight='bold', pad=15)
+    ax1.set_xticks(range(len(user_counts)))
+    ax1.set_xticklabels([f'{u} users' for u in user_counts])
+    ax1.grid(True, alpha=0.3, linestyle='--')
+    
+    # Add value labels on bars
+    for i, bar in enumerate(bars1):
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
+                f'{height:.1f} days\n({monthly_hours[i]:.0f} hrs)',
+                ha='center', va='bottom', fontweight='bold', fontsize=9)
+    
+    # Chart 2: Annual time savings
+    annual_days = [time_data['annual_days'] * users for users in user_counts]
+    annual_weeks = [days / 5 for days in annual_days]  # Convert to work weeks
+    
+    bars2 = ax2.bar(range(len(user_counts)), annual_weeks,
+                    color='#27AE60', alpha=0.8, edgecolor='white', linewidth=2)
+    ax2.set_xlabel('Number of Users', fontweight='bold')
+    ax2.set_ylabel('Time Saved (Work Weeks/Year)', fontweight='bold')
+    ax2.set_title('Annual Time Savings by User Count', fontweight='bold', pad=15)
+    ax2.set_xticks(range(len(user_counts)))
+    ax2.set_xticklabels([f'{u} users' for u in user_counts])
+    ax2.grid(True, alpha=0.3, linestyle='--')
+    
+    # Add value labels on bars
+    for i, bar in enumerate(bars2):
+        height = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
+                f'{height:.1f} weeks\n({annual_days[i]:.0f} days)',
+                ha='center', va='bottom', fontweight='bold', fontsize=9)
+    
+    plt.tight_layout()
+    return fig
+
 # --- Streamlit Configuration ---
 st.set_page_config(
     layout="wide", 
@@ -283,6 +383,34 @@ with st.sidebar:
     # Competitive pricing
     st.write("**Competitive Landscape**")
     competitor_price = st.number_input("Avg Competitor Price ($/user/month)", 5, 200, 50, 5)
+    
+    st.markdown("---")
+    
+    # --- Time Savings Analysis ---
+    st.subheader("⏰ Time Savings Analysis")
+    st.write("**Manual Tasks Replaced by AI:**")
+    
+    # Manual task checkboxes
+    manual_tasks = {
+        'note_taking': st.checkbox("Note Taking During Meetings", True, help="Time spent manually taking notes during meetings"),
+        'summary_writing': st.checkbox("Writing Meeting Summaries", True, help="Time spent writing comprehensive meeting summaries"),
+        'action_item_extraction': st.checkbox("Extracting Action Items", True, help="Time spent identifying and listing action items"),
+        'follow_up_emails': st.checkbox("Follow-up Email Drafting", True, help="Time spent drafting follow-up emails"),
+        'meeting_prep_review': st.checkbox("Pre-meeting Prep Review", True, help="Time spent reviewing previous meeting notes before new meetings"),
+        'calendar_updates': st.checkbox("Calendar & Task Updates", True, help="Time spent updating calendars and task management systems"),
+        'status_reporting': st.checkbox("Status Reporting", True, help="Time spent creating status reports for stakeholders"),
+        'document_filing': st.checkbox("Document Organization", True, help="Time spent organizing and filing meeting materials")
+    }
+    
+    # Productivity parameters
+    st.write("**Productivity Assumptions:**")
+    col1, col2 = st.columns(2)
+    with col1:
+        avg_hourly_rate = st.number_input("Average Hourly Rate ($)", 25, 200, 75, 5,
+                                        help="Average hourly compensation for meeting participants")
+    with col2:
+        productivity_multiplier = st.slider("Productivity Multiplier", 1.0, 2.0, 1.2, 0.1,
+                                          help="Factor by which saved time translates to additional productivity")
 
 # --- Main Calculations ---
 # Token calculations
@@ -302,10 +430,14 @@ profit_per_user_per_month = price_per_user_per_month - monthly_cost_per_user
 sam, som = calculate_market_size(tam, sam_percentage, som_percentage)
 potential_users = som / (price_per_user_per_month * 12) if price_per_user_per_month > 0 else 0
 
+# Time savings calculations
+time_savings_data = calculate_time_saved(meeting_duration_minutes, meetings_per_month, manual_tasks)
+productivity_value_data = calculate_productivity_value(time_savings_data['monthly_hours'], avg_hourly_rate, productivity_multiplier)
+
 # --- Main Dashboard ---
 # Key Metrics Row
 st.header("🎯 Key Metrics Dashboard")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     st.metric(
@@ -329,6 +461,13 @@ with col3:
     )
 
 with col4:
+    st.metric(
+        "Time Saved/User/Month",
+        f"{time_savings_data['monthly_hours']:.1f} hours",
+        f"${productivity_value_data['productivity_value']:.0f} value"
+    )
+
+with col5:
     st.metric(
         "Market Potential",
         f"{int(potential_users):,} users",
@@ -387,7 +526,7 @@ with col3:
 st.markdown("---")
 st.header("📊 Financial Analysis")
 
-tab1, tab2, tab3, tab4 = st.tabs(["Cost Breakdown", "Revenue Projections", "Break-even Analysis", "Scenario Planning"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Cost Breakdown", "Revenue Projections", "Break-even Analysis", "Time Savings", "Scenario Planning"])
 
 with tab1:
     col1, col2 = st.columns([1, 1])
@@ -479,6 +618,71 @@ with tab3:
         st.dataframe(sensitivity_df)
 
 with tab4:
+    st.subheader("⏰ Time Savings Analysis")
+    
+    # Time savings chart
+    time_chart = create_time_savings_chart(time_savings_data)
+    st.pyplot(time_chart)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Time Savings Breakdown")
+        
+        # Task breakdown table
+        task_breakdown_data = []
+        for task, minutes in time_savings_data['task_breakdown'].items():
+            task_name = task.replace('_', ' ').title()
+            task_breakdown_data.append({
+                'Task': task_name,
+                'Minutes per Meeting': f"{minutes:.1f}",
+                'Hours per Month': f"{(minutes * meetings_per_month) / 60:.1f}",
+                'Hours per Year': f"{(minutes * meetings_per_month * 12) / 60:.1f}"
+            })
+        
+        if task_breakdown_data:
+            breakdown_df = pd.DataFrame(task_breakdown_data)
+            st.dataframe(breakdown_df)
+        
+        # Summary metrics
+        st.subheader("Summary Metrics")
+        st.metric("Time Saved per Meeting", f"{time_savings_data['per_meeting_hours']:.1f} hours")
+        st.metric("Monthly Time Saved", f"{time_savings_data['monthly_hours']:.1f} hours")
+        st.metric("Annual Time Saved", f"{time_savings_data['annual_days']:.1f} work days")
+    
+    with col2:
+        st.subheader("Productivity Value Analysis")
+        
+        # Value calculations
+        st.metric("Base Time Value (Monthly)", f"${productivity_value_data['base_value']:.0f}")
+        st.metric("Productivity Value (Monthly)", f"${productivity_value_data['productivity_value']:.0f}")
+        st.metric("Additional Value Created", f"${productivity_value_data['additional_value']:.0f}")
+        
+        # ROI calculation
+        monthly_roi = ((productivity_value_data['productivity_value'] - price_per_user_per_month) / price_per_user_per_month * 100) if price_per_user_per_month > 0 else 0
+        st.metric("ROI per User", f"{monthly_roi:.0f}%", "Monthly return on investment")
+        
+        # Payback period
+        payback_days = (price_per_user_per_month / productivity_value_data['productivity_value'] * 30) if productivity_value_data['productivity_value'] > 0 else 0
+        st.metric("Payback Period", f"{payback_days:.1f} days", "Time to recover monthly cost")
+        
+        # Scale analysis
+        st.subheader("Scale Impact")
+        scale_users = [10, 50, 100, 500]
+        scale_data = []
+        for users in scale_users:
+            annual_time_saved = time_savings_data['annual_hours'] * users
+            annual_value = productivity_value_data['productivity_value'] * users * 12
+            scale_data.append({
+                'Users': users,
+                'Annual Hours Saved': f"{annual_time_saved:,.0f}",
+                'Annual Value': f"${annual_value:,.0f}"
+            })
+        
+        scale_df = pd.DataFrame(scale_data)
+        st.dataframe(scale_df)
+
+with tab5:
     st.subheader("Scenario Comparison Tool")
     
     col1, col2, col3 = st.columns(3)
@@ -599,6 +803,13 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 - **Monthly Profit per User:** ${profit_per_user_per_month:.2f}
 - **Total Fixed Costs:** ${total_fixed_costs:,}
 
+## Time Savings Analysis
+- **Time Saved per Meeting:** {time_savings_data['per_meeting_hours']:.1f} hours
+- **Monthly Time Saved per User:** {time_savings_data['monthly_hours']:.1f} hours
+- **Annual Time Saved per User:** {time_savings_data['annual_days']:.1f} work days
+- **Monthly Productivity Value:** ${productivity_value_data['productivity_value']:.0f}
+- **ROI per User:** {((productivity_value_data['productivity_value'] - price_per_user_per_month) / price_per_user_per_month * 100) if price_per_user_per_month > 0 else 0:.0f}%
+
 ## Market Analysis
 - **TAM:** ${tam/1_000_000:.1f}M
 - **SAM:** ${sam/1_000_000:.1f}M ({sam_percentage}% of TAM)
@@ -626,7 +837,12 @@ with col2:
             'TAM',
             'SAM',
             'SOM',
-            'Potential Users'
+            'Potential Users',
+            'Time Saved per Meeting (hours)',
+            'Monthly Time Saved per User (hours)',
+            'Annual Time Saved per User (days)',
+            'Monthly Productivity Value',
+            'ROI per User (%)'
         ],
         'Value': [
             price_per_user_per_month,
@@ -638,7 +854,12 @@ with col2:
             tam,
             sam,
             som,
-            int(potential_users)
+            int(potential_users),
+            time_savings_data['per_meeting_hours'],
+            time_savings_data['monthly_hours'],
+            time_savings_data['annual_days'],
+            productivity_value_data['productivity_value'],
+            ((productivity_value_data['productivity_value'] - price_per_user_per_month) / price_per_user_per_month * 100) if price_per_user_per_month > 0 else 0
         ]
     }
     
