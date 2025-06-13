@@ -148,16 +148,16 @@ def calculate_market_size(tam, sam_percentage, som_percentage):
 def calculate_time_saved(meeting_duration_minutes, meetings_per_month, manual_tasks_enabled):
     """Calculate time saved per user per month using AI meeting analysis vs manual tasks."""
     
-    # Base heuristics for manual meeting-related tasks (in minutes)
+    # Base heuristics for manual post-meeting tasks (in minutes) - tasks people actually do
     manual_task_times = {
-        'note_taking': meeting_duration_minutes * 0.8,  # 80% of meeting time spent taking notes
-        'summary_writing': meeting_duration_minutes * 0.5,  # 30 min meeting = 15 min summary
-        'action_item_extraction': meeting_duration_minutes * 0.2,  # 20% of meeting time
-        'follow_up_emails': 10,  # 10 minutes per meeting for follow-ups
-        'meeting_prep_review': 5,  # 5 minutes reviewing previous meeting notes
-        'calendar_updates': 3,  # 3 minutes updating calendar with action items
-        'status_reporting': meeting_duration_minutes * 0.15,  # 15% for status updates to stakeholders
-        'document_filing': 2  # 2 minutes organizing and filing meeting materials
+        'action_item_extraction': 8,  # 8 minutes to manually identify and list action items from transcript/recording
+        'follow_up_task_creation': 6,  # 6 minutes creating tasks in project management tools
+        'follow_up_emails': 10,  # 10 minutes drafting and sending follow-up emails with key points
+        'calendar_scheduling': 4,  # 4 minutes scheduling follow-up meetings mentioned in the meeting
+        'document_updates': 5,  # 5 minutes updating shared documents with decisions made
+        'team_notifications': 3,  # 3 minutes notifying team members who weren't present about relevant decisions
+        'crm_updates': 4,  # 4 minutes updating CRM with client meeting outcomes (if applicable)
+        'meeting_notes_sharing': 2  # 2 minutes sharing meeting outcomes in team chat/slack
     }
     
     # Calculate total manual time per meeting
@@ -392,14 +392,14 @@ with st.sidebar:
     
     # Manual task checkboxes
     manual_tasks = {
-        'note_taking': st.checkbox("Note Taking During Meetings", True, help="Time spent manually taking notes during meetings"),
-        'summary_writing': st.checkbox("Writing Meeting Summaries", True, help="Time spent writing comprehensive meeting summaries"),
-        'action_item_extraction': st.checkbox("Extracting Action Items", True, help="Time spent identifying and listing action items"),
-        'follow_up_emails': st.checkbox("Follow-up Email Drafting", True, help="Time spent drafting follow-up emails"),
-        'meeting_prep_review': st.checkbox("Pre-meeting Prep Review", True, help="Time spent reviewing previous meeting notes before new meetings"),
-        'calendar_updates': st.checkbox("Calendar & Task Updates", True, help="Time spent updating calendars and task management systems"),
-        'status_reporting': st.checkbox("Status Reporting", True, help="Time spent creating status reports for stakeholders"),
-        'document_filing': st.checkbox("Document Organization", True, help="Time spent organizing and filing meeting materials")
+        'action_item_extraction': st.checkbox("Action Item Extraction", True, help="Time spent manually identifying and listing action items from recordings/transcripts"),
+        'follow_up_task_creation': st.checkbox("Follow-up Task Creation", True, help="Time spent creating tasks in project management tools based on meeting outcomes"),
+        'follow_up_emails': st.checkbox("Follow-up Email Drafting", True, help="Time spent drafting and sending follow-up emails with key points"),
+        'calendar_scheduling': st.checkbox("Calendar Scheduling", True, help="Time spent scheduling follow-up meetings mentioned during the meeting"),
+        'document_updates': st.checkbox("Document Updates", True, help="Time spent updating shared documents with decisions made in meetings"),
+        'team_notifications': st.checkbox("Team Notifications", True, help="Time spent notifying team members about relevant decisions from meetings"),
+        'crm_updates': st.checkbox("CRM Updates", False, help="Time spent updating CRM systems with client meeting outcomes"),
+        'meeting_notes_sharing': st.checkbox("Meeting Notes Sharing", True, help="Time spent sharing meeting outcomes in team chat or collaboration tools")
     }
     
     # Productivity parameters
