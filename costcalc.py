@@ -145,26 +145,22 @@ def calculate_market_size(tam, sam_percentage, som_percentage):
     som = sam * (som_percentage / 100)
     return sam, som
 
-def calculate_time_saved(meeting_duration_minutes, meetings_per_month, manual_tasks_enabled):
+def calculate_time_saved(meeting_duration_minutes, meetings_per_month, manual_tasks_config):
     """Calculate time saved per user per month using AI meeting analysis vs manual tasks."""
-    
-    # Base heuristics for manual post-meeting tasks (in minutes) - tasks people actually do
-    manual_task_times = {
-        'action_item_extraction': 8,  # 8 minutes to manually identify and list action items from transcript/recording
-        'follow_up_task_creation': 6,  # 6 minutes creating tasks in project management tools
-        'follow_up_emails': 10,  # 10 minutes drafting and sending follow-up emails with key points
-        'calendar_scheduling': 4,  # 4 minutes scheduling follow-up meetings mentioned in the meeting
-        'document_updates': 5,  # 5 minutes updating shared documents with decisions made
-        'team_notifications': 3,  # 3 minutes notifying team members who weren't present about relevant decisions
-        'crm_updates': 4,  # 4 minutes updating CRM with client meeting outcomes (if applicable)
-        'meeting_notes_sharing': 2  # 2 minutes sharing meeting outcomes in team chat/slack
-    }
     
     # Calculate total manual time per meeting
     total_manual_time_per_meeting = 0
-    for task, enabled in manual_tasks_enabled.items():
-        if enabled:
-            total_manual_time_per_meeting += manual_task_times.get(task, 0)
+    task_breakdown = {}
+    
+    for task, config in manual_tasks_config.items():
+        if config['enabled']:
+            if config['time_type'] == 'fixed':
+                time_minutes = config['time_value']
+            else:  # percentage
+                time_minutes = meeting_duration_minutes * (config['time_value'] / 100)
+            
+            total_manual_time_per_meeting += time_minutes
+            task_breakdown[task] = time_minutes
     
     # Monthly calculations
     monthly_time_saved_minutes = total_manual_time_per_meeting * meetings_per_month
@@ -181,7 +177,7 @@ def calculate_time_saved(meeting_duration_minutes, meetings_per_month, manual_ta
         'monthly_hours': monthly_time_saved_hours,
         'annual_hours': annual_time_saved_hours,
         'annual_days': annual_time_saved_days,
-        'task_breakdown': {task: manual_task_times[task] for task, enabled in manual_tasks_enabled.items() if enabled}
+        'task_breakdown': task_breakdown
     }
 
 def calculate_productivity_value(time_saved_hours, hourly_rate, productivity_multiplier=1.2):
@@ -390,17 +386,124 @@ with st.sidebar:
     st.subheader("⏰ Time Savings Analysis")
     st.write("**Manual Tasks Replaced by AI:**")
     
-    # Manual task checkboxes
-    manual_tasks = {
-        'action_item_extraction': st.checkbox("Action Item Extraction", True, help="Time spent manually identifying and listing action items from recordings/transcripts"),
-        'follow_up_task_creation': st.checkbox("Follow-up Task Creation", True, help="Time spent creating tasks in project management tools based on meeting outcomes"),
-        'follow_up_emails': st.checkbox("Follow-up Email Drafting", True, help="Time spent drafting and sending follow-up emails with key points"),
-        'calendar_scheduling': st.checkbox("Calendar Scheduling", True, help="Time spent scheduling follow-up meetings mentioned during the meeting"),
-        'document_updates': st.checkbox("Document Updates", True, help="Time spent updating shared documents with decisions made in meetings"),
-        'team_notifications': st.checkbox("Team Notifications", True, help="Time spent notifying team members about relevant decisions from meetings"),
-        'crm_updates': st.checkbox("CRM Updates", False, help="Time spent updating CRM systems with client meeting outcomes"),
-        'meeting_notes_sharing': st.checkbox("Meeting Notes Sharing", True, help="Time spent sharing meeting outcomes in team chat or collaboration tools")
+    # Manual task configuration with individual time settings
+    task_definitions = {
+        'action_item_extraction': {
+            'name': 'Action Item Extraction',
+            'help': 'Time spent manually identifying and listing action items from recordings/transcripts',
+            'default_enabled': True,
+            'default_time_type': 'fixed',
+            'default_time_value': 8
+        },
+        'follow_up_task_creation': {
+            'name': 'Follow-up Task Creation',
+            'help': 'Time spent creating tasks in project management tools based on meeting outcomes',
+            'default_enabled': True,
+            'default_time_type': 'fixed',
+            'default_time_value': 6
+        },
+        'follow_up_emails': {
+            'name': 'Follow-up Email Drafting',
+            'help': 'Time spent drafting and sending follow-up emails with key points',
+            'default_enabled': True,
+            'default_time_type': 'fixed',
+            'default_time_value': 10
+        },
+        'calendar_scheduling': {
+            'name': 'Calendar Scheduling',
+            'help': 'Time spent scheduling follow-up meetings mentioned during the meeting',
+            'default_enabled': True,
+            'default_time_type': 'fixed',
+            'default_time_value': 4
+        },
+        'document_updates': {
+            'name': 'Document Updates',
+            'help': 'Time spent updating shared documents with decisions made in meetings',
+            'default_enabled': True,
+            'default_time_type': 'fixed',
+            'default_time_value': 5
+        },
+        'team_notifications': {
+            'name': 'Team Notifications',
+            'help': 'Time spent notifying team members about relevant decisions from meetings',
+            'default_enabled': True,
+            'default_time_type': 'fixed',
+            'default_time_value': 3
+        },
+        'crm_updates': {
+            'name': 'CRM Updates',
+            'help': 'Time spent updating CRM systems with client meeting outcomes',
+            'default_enabled': False,
+            'default_time_type': 'fixed',
+            'default_time_value': 4
+        },
+        'meeting_notes_sharing': {
+            'name': 'Meeting Notes Sharing',
+            'help': 'Time spent sharing meeting outcomes in team chat or collaboration tools',
+            'default_enabled': True,
+            'default_time_type': 'fixed',
+            'default_time_value': 2
+        }
     }
+    
+    manual_tasks = {}
+    
+    for task_key, task_def in task_definitions.items():
+        st.write(f"**{task_def['name']}**")
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            enabled = st.checkbox(
+                f"Enable {task_def['name']}",
+                task_def['default_enabled'],
+                help=task_def['help'],
+                key=f"enable_{task_key}"
+            )
+        
+        with col2:
+            time_type = st.selectbox(
+                "Type",
+                ["fixed", "percentage"],
+                index=0 if task_def['default_time_type'] == 'fixed' else 1,
+                key=f"type_{task_key}",
+                disabled=not enabled
+            )
+        
+        with col3:
+            if time_type == "fixed":
+                time_value = st.number_input(
+                    "Minutes",
+                    min_value=1,
+                    max_value=60,
+                    value=task_def['default_time_value'],
+                    key=f"value_{task_key}",
+                    disabled=not enabled
+                )
+            else:
+                time_value = st.number_input(
+                    "% of Meeting",
+                    min_value=1,
+                    max_value=100,
+                    value=15,
+                    key=f"value_{task_key}",
+                    disabled=not enabled
+                )
+        
+        manual_tasks[task_key] = {
+            'enabled': enabled,
+            'time_type': time_type,
+            'time_value': time_value
+        }
+        
+        # Show calculated time for this task
+        if enabled:
+            if time_type == 'fixed':
+                calculated_time = time_value
+            else:
+                calculated_time = meeting_duration_minutes * (time_value / 100)
+            st.caption(f"💾 Saves {calculated_time:.1f} minutes per meeting")
+        
+        st.markdown("---")
     
     # Productivity parameters
     st.write("**Productivity Assumptions:**")
